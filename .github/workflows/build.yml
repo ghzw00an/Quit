@@ -1,0 +1,52 @@
+name: Unpack ZIP and Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'exam_builder_android_project.zip'
+      - '.github/workflows/build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  unpack-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unpack uploaded project ZIP
+        run: |
+          test -f exam_builder_android_project.zip
+          mkdir -p /tmp/exam-project
+          unzip -o exam_builder_android_project.zip -d /tmp/exam-project
+          cp -a /tmp/exam-project/. .
+          rm -rf /tmp/exam-project
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build APK
+        run: gradle assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exam-builder-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
