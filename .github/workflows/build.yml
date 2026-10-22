@@ -49,6 +49,37 @@ jobs:
           sed -i '0,/<application/s|<application|<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <application|' $M
           cat $M
 
+      - name: Force compileSdk 36 on all plugins
+        run: |
+          if [ -f android/build.gradle.kts ]; then
+            cat > /tmp/patch.kts <<'EOT'
+          subprojects {
+              afterEvaluate {
+                  extensions.findByName("android")?.let { ext ->
+                      ext.withGroovyBuilder { "compileSdkVersion"(36) }
+                  }
+              }
+          }
+
+          EOT
+            cat /tmp/patch.kts android/build.gradle.kts > /tmp/new.kts
+            mv /tmp/new.kts android/build.gradle.kts
+          else
+            cat > /tmp/patch.gradle <<'EOT'
+          subprojects {
+              afterEvaluate { p ->
+                  if (p.hasProperty('android')) {
+                      p.android.compileSdkVersion 36
+                  }
+              }
+          }
+
+          EOT
+            cat /tmp/patch.gradle android/build.gradle > /tmp/new.gradle
+            mv /tmp/new.gradle android/build.gradle
+          fi
+          head -20 android/build.gradle* 
+
       - name: Get packages
         run: flutter pub get
 
