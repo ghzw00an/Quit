@@ -23,7 +23,6 @@ jobs:
           mkdir -p /tmp/exam-project
           unzip -o exam_builder_android_project.zip -d /tmp/exam-project
           cp -a /tmp/exam-project/. .
-          rm -rf /tmp/exam-project
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -31,22 +30,34 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          gradle-version: '8.9'
+          channel: stable
+          cache: true
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platforms;android-35 build-tools;35.0.0'
+      - name: Create Android scaffold
+        run: |
+          flutter create --platforms=android --org com.example --project-name exam_builder /tmp/scaffold
+          rm -rf android
+          cp -r /tmp/scaffold/android ./android
+
+      - name: Patch AndroidManifest (name + storage permissions)
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's|android:label="[^"]*"|android:label="منشئ الامتحانات" android:requestLegacyExternalStorage="true"|' $M
+          sed -i '0,/<application/s|<application|<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <application|' $M
+          cat $M
+
+      - name: Get packages
+        run: flutter pub get
 
       - name: Build APK
-        run: gradle assembleDebug
+        run: flutter build apk --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: exam-builder-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: exam-builder-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
